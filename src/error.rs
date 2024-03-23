@@ -48,8 +48,8 @@ pub struct InvalidHeaderPrefix {
 /// The received message has an invalid checksum value.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct InvalidChecksum {
-	pub message: u16,
-	pub computed: u16,
+	pub message: [u8; 2],
+	pub computed: [u8; 2],
 }
 
 /// The received message has an invalid or unexpected packet ID.
@@ -327,7 +327,7 @@ impl std::fmt::Display for InvalidChecksum {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(
 			f,
-			"invalid checksum, message claims {:#02X}, computed {:#02X}",
+			"invalid checksum, message claims {:#02X?}, computed {:#02X?}",
 			self.message, self.computed
 		)
 	}

@@ -55,7 +55,7 @@ const CRC_TABLE_L: [u8; 256] = [0x00, 0xC0, 0xC1, 0x01, 0xC3, 0x03, 0x02, 0xC2, 
 /// by passing the checksum of the first block as the `initial` parameter for the second block.
 ///
 /// If there is no previous data, pass 0 as `initial` value.
-pub fn calculate_checksum(data: &[u8]) -> u16 {
+pub fn calculate_checksum(data: &[u8]) -> [u8;2] {
 	let mut checksum_high = 0xFF;
 	let mut checksum_low = 0xFF;
 	for &byte in data {
@@ -64,7 +64,7 @@ pub fn calculate_checksum(data: &[u8]) -> u16 {
 		checksum_low = CRC_TABLE_L[index as usize]
 	}
 
-	(checksum_low as u16) << 8 |  checksum_high as u16
+	[checksum_high, checksum_low]
 }
 
 #[cfg(test)]
@@ -74,6 +74,6 @@ mod tests {
 	#[test]
 	fn test_calculate_checksum() {
 		let data = [0xAA, 0x01, 0x01, 0x31];
-		assert_eq!(calculate_checksum(&data), (0x78u16) << 8 | 0xb0u16);//[0xB0, 0x78]);
+		assert_eq!(calculate_checksum(&data), [0xB0, 0x78]);
 	}
 }

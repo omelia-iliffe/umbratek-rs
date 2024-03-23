@@ -2,7 +2,6 @@ use serial2::SerialPort;
 use std::io::Read;
 use std::path::Path;
 use std::time::{Duration, Instant};
-use byteorder::{ReadBytesExt, BE};
 
 use crate::checksum::calculate_checksum;
 use crate::{ReadError, TransferError, WriteError};
@@ -161,7 +160,7 @@ where
 		let checksum_index = HEADER_SIZE + parameter_count;
 		let checksum = calculate_checksum(&buffer[..checksum_index]);
 
-		buffer[checksum_index..][..2].copy_from_slice(&checksum.to_be_bytes());
+		buffer[checksum_index..][..2].copy_from_slice(&checksum);
 		// write_u16_le(&mut buffer[checksum_index..], checksum);
 
 		// Send message.
@@ -212,7 +211,7 @@ where
 		let parameters_end = parameter_count + HEADER_SIZE;
 		log::trace!("read packet: {:02X?}", &buffer[..message_length]);
 
-		let checksum_message = buffer[parameters_end..].as_ref().read_u16::<BE>()?;
+		let checksum_message:[u8; 2] = buffer[parameters_end..][..2].try_into().map_err(|_| ReadError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, "Failed to convert checksum")))?;
 		let checksum_computed = calculate_checksum(&buffer[..parameters_end]);
 		if checksum_message != checksum_computed {
 			self.consume_read_bytes(message_length);
