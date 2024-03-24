@@ -24,7 +24,6 @@ where
 			Ok(Response {
 				data: REG::try_from_bytes(response.data()).map_err(ReadError::from)?,
 				motor_id: response.sender_id(),
-				error: response.error(),
 			}))
 	}
 }

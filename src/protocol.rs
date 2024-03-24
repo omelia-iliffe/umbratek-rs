@@ -141,24 +141,24 @@ pub enum RegisterAddress {
 // TAU_TRACKING_DIFF = 1015
 }
 
-pub(crate) trait Register {
+pub trait Register {
     fn address() -> RegisterAddress;
     fn size() -> u8;
 }
 
-pub(crate) trait Writable {
+pub trait Writable {
     fn as_bytes(&self) -> Vec<u8>;
 }
 
-pub(crate) trait Readable {
+pub trait Readable {
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, std::io::Error> where Self: Sized;
 }
 
-pub(crate) trait TryFromBytes {
+pub trait TryFromBytes {
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, std::io::Error> where Self: Sized;
 }
 
-pub(crate) trait IntoBytes {
+pub trait IntoBytes {
     fn into_bytes(&self) -> Vec<u8>;
 }
 
@@ -178,8 +178,8 @@ pub mod registers {
 
     register!(ElecRatio: RegisterAddress::ELEC_RATIO, f32, RW);
     register!(MotionDir: RegisterAddress::MOTION_DIR, bool, RW);
-    register!(IWDGCyc: RegisterAddress::IWDG_CYC, u16, RW);
-    register!(TempLimit: RegisterAddress::TEMP_LIMIT, Limit<u8>, RW);
+    register!(IWDGCyc: RegisterAddress::IWDG_CYC, u32, RW);
+    register!(TempLimit: RegisterAddress::TEMP_LIMIT, Limit<i8>, RW);
     register!(VoltLimit: RegisterAddress::VOLT_LIMIT, Limit<u8>, RW);
     register!(CurrLimit: RegisterAddress::CURR_LIMIT, f32, RW);
 // register!(BrakeDelay: RegisterAddress::BRAKE_DELAY, u32, RW);
@@ -201,7 +201,7 @@ pub mod registers {
     register!(PositionLimitMin: RegisterAddress::POS_LIMIT_MIN, f32, RW);
     register!(PositionLimitDiff: RegisterAddress::POS_LIMIT_DIFF, f32, RW);
     register!(PositionPIDP: RegisterAddress::POS_PIDP, f32, RW);
-    register!(PositionSmoothCyc: RegisterAddress::POS_SMOOTH_CYC, u16, RW);
+    register!(PositionSmoothCyc: RegisterAddress::POS_SMOOTH_CYC, u8, RW);
     // register!(PositionADRCParam: RegisterAddress::POS_ADRC_PARAM, f32, RW);
     register!(PositionCalZero: RegisterAddress::POS_CAL_ZERO, u8, W);
 
@@ -212,7 +212,7 @@ pub mod registers {
     register!(VelocityLimitDiff: RegisterAddress::VEL_LIMIT_DIFF, f32, RW);
     register!(VelocityPIDP: RegisterAddress::VEL_PIDP, f32, RW);
     register!(VelocityPIDI: RegisterAddress::VEL_PIDI, f32, RW);
-    register!(VelocitySmoothCyc: RegisterAddress::VEL_SMOOTH_CYC, u16, RW);
+    register!(VelocitySmoothCyc: RegisterAddress::VEL_SMOOTH_CYC, u8, RW);
 // register!(VelocityADRCParam: RegisterAddress::VEL_ADRC_PARAM, f32, RW);
 
     register!(TorqueTarget: RegisterAddress::TAU_TARGET, f32, RW);
@@ -222,7 +222,7 @@ pub mod registers {
     register!(TorqueLimitDiff: RegisterAddress::TAU_LIMIT_DIFF, f32, RW);
     register!(TorquePIDP: RegisterAddress::TAU_PIDP, f32, RW);
     register!(TorquePIDI: RegisterAddress::TAU_PIDI, f32, RW);
-    register!(TorqueSmoothCyc: RegisterAddress::TAU_SMOOTH_CYC, u16, RW);
+    register!(TorqueSmoothCyc: RegisterAddress::TAU_SMOOTH_CYC, u8, RW);
 // register!(TorqueADRCParam: RegisterAddress::TAU_ADRC_PARAM, f32, RW);
 }
 
@@ -338,7 +338,19 @@ impl IntoBytes for bool {
         vec![*self as u8]
     }
 }
+impl TryFromBytes for i8 {
+    fn try_from_bytes(bytes: &[u8]) -> Result<Self, std::io::Error> {
+        let mut rdr = std::io::Cursor::new(bytes);
+        let value = rdr.read_i8()?;
+        Ok(value)
+    }
+}
 
+impl IntoBytes for i8 {
+    fn into_bytes(&self) -> Vec<u8> {
+        vec![*self as u8]
+    }
+}
 impl TryFromBytes for u8 {
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, std::io::Error> {
         let mut rdr = std::io::Cursor::new(bytes);

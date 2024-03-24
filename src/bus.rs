@@ -1,7 +1,7 @@
+use std::fmt::Debug;
 use serial2::SerialPort;
 use std::io::Read;
 use std::path::Path;
-use std::time::{Duration, Instant};
 
 use crate::checksum::calculate_checksum;
 use crate::{ReadError, TransferError, WriteError};
@@ -15,13 +15,12 @@ use crate::{ReadError, TransferError, WriteError};
 // |SENDER | RECEIVER | ERR | LEN | RW | COMMAND | DATA | CRC |
 const HEADER_SIZE: usize = 4;
 
+const CHECKSUM_SIZE: usize = 2;
+
 /// Dynamixel Protocol 2 communication bus.
 pub struct Bus<ReadBuffer, WriteBuffer> {
 	/// The underlying stream (normally a serial port).
 	serial_port: SerialPort,
-
-	/// The timeout for reading a single response.
-	read_timeout: Duration,
 
 	/// The buffer for reading incoming messages.
 	read_buffer: ReadBuffer,
@@ -38,17 +37,17 @@ impl Bus<Vec<u8>, Vec<u8>> {
 	///
 	/// This will allocate a new read and write buffer of 128 bytes each.
 	/// Use [`Self::open_with_buffers()`] if you want to use a custom buffers.
-	pub fn open(path: impl AsRef<Path>, baud_rate: u32, read_timeout: Duration) -> std::io::Result<Self> {
+	pub fn open(path: impl AsRef<Path>, baud_rate: u32) -> std::io::Result<Self> {
 		let port = SerialPort::open(path, baud_rate)?;
-		Ok(Self::new(port, read_timeout))
+		Ok(Self::new(port))
 	}
 
 	/// Create a new bus for an open serial port.
 	///
 	/// This will allocate a new read and write buffer of 128 bytes each.
 	/// Use [`Self::with_buffers()`] if you want to use a custom buffers.
-	pub fn new(stream: SerialPort, read_timeout: Duration) -> Self {
-		Self::with_buffers(stream, read_timeout, vec![0; 128], vec![0; 128])
+	pub fn new(stream: SerialPort) -> Self {
+		Self::with_buffers(stream, vec![0; 128], vec![0; 128])
 	}
 }
 
@@ -63,23 +62,21 @@ where
 	pub fn open_with_buffers(
 		path: impl AsRef<Path>,
 		baud_rate: u32,
-		read_timeout: Duration,
 		read_buffer: ReadBuffer,
 		write_buffer: WriteBuffer,
 	) -> std::io::Result<Self> {
 		let port = SerialPort::open(path, baud_rate)?;
-		Ok(Self::with_buffers(port, read_timeout, read_buffer, write_buffer))
+		Ok(Self::with_buffers(port, read_buffer, write_buffer))
 	}
 
 	/// Create a new bus using pre-allocated buffers.
-	pub fn with_buffers(serial_port: SerialPort, read_timeout: Duration, read_buffer: ReadBuffer, mut write_buffer: WriteBuffer) -> Self {
+	pub fn with_buffers(serial_port: SerialPort, read_buffer: ReadBuffer, mut write_buffer: WriteBuffer) -> Self {
 		// Pre-fill write buffer with the header prefix.
 		assert!(write_buffer.as_mut().len() >= HEADER_SIZE + 2);
 		//write_buffer.as_mut()[..4].copy_from_slice(&HEADER_PREFIX);
 
 		Self {
 			serial_port,
-			read_timeout,
 			read_buffer,
 			read_len: 0,
 			write_buffer,
@@ -168,75 +165,37 @@ where
 	}
 	/// Read a raw status response from the bus.
 	pub fn read_status_response(&mut self, parameter_count: usize) -> Result<ResponsePacket<ReadBuffer, WriteBuffer>, ReadError> {
-		let deadline = Instant::now() + self.read_timeout;
-		//let stuffed_message_len = loop {
-		//    self.remove_garbage();
 
-		//    // The call to remove_garbage() removes all leading bytes that don't match a status header.
-		//    // So if there's enough bytes left, it's a status header.
-		//    if self.read_len > STATUS_HEADER_SIZE {
-		//        let read_buffer = &self.read_buffer.as_mut()[..self.read_len];
-		//        let body_len = read_buffer[5] as usize + read_buffer[6] as usize * 256;
-		//        let body_len = body_len - 2; // Length includes instruction and error fields, which is already included in STATUS_HEADER_SIZE too.
-
-		//        if self.read_len >= STATUS_HEADER_SIZE + body_len {
-		//            break STATUS_HEADER_SIZE + body_len;
-		//        }
-		//    }
-
-		//    if Instant::now() > deadline {
-		//        trace!(
-		//            "timeout reading status response, data in buffer: {:02X?}",
-		//            &self.read_buffer.as_ref()[..self.read_len]
-		//        );
-		//        return Err(std::io::ErrorKind::TimedOut.into());
-		//    }
-
-		//    // Try to read more data into the buffer.
-		//    let new_data = self
-		//        .serial_port
-		//        .read(&mut self.read_buffer.as_mut()[self.read_len..])?;
-		//    if new_data == 0 {
-		//        continue;
-		//    }
-
-		//    self.read_len += new_data;
-		//};
-		let message_length = parameter_count + HEADER_SIZE + 2; // + checksum
+		let message_length = parameter_count + HEADER_SIZE + CHECKSUM_SIZE; // + checksum
 
 		let buffer = self.read_buffer.as_mut();
 		log::trace!("Reading {} bytes", message_length);
 		self.serial_port
 			.read_exact(&mut buffer[self.read_len..self.read_len + message_length])?;
-		let parameters_end = parameter_count + HEADER_SIZE;
-		log::trace!("read packet: {:02X?}", &buffer[..message_length]);
-
-		let checksum_message:[u8; 2] = buffer[parameters_end..][..2].try_into().map_err(|_| ReadError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, "Failed to convert checksum")))?;
-		let checksum_computed = calculate_checksum(&buffer[..parameters_end]);
-		if checksum_message != checksum_computed {
-			self.consume_read_bytes(message_length);
-			return Err(crate::InvalidChecksum {
-				message: checksum_message,
-				computed: checksum_computed,
-			}
-			.into());
-		}
-
-		// Remove byte-stuffing from the data.
-		//let parameter_count =
-		//  bytestuff::unstuff_inplace(&mut buffer[STATUS_HEADER_SIZE..parameters_end]);
-
-		// Creating the status packet struct here means that the data gets purged from the buffer even if we return early using the try operator.
 		self.read_len += message_length;
+		log::trace!("read packet: {:02X?}", &buffer[..message_length]);
+		self.parse_read(message_length, parameter_count)
+	}
+
+	fn parse_read(&mut self, message_length: usize, parameter_count:usize) -> Result<ResponsePacket<ReadBuffer, WriteBuffer>, ReadError>{
+		let buffer = self.read_buffer.as_mut();
+
+		let parameters_end = parameter_count + HEADER_SIZE;
+		let checksum_message:[u8; 2] = buffer[parameters_end..][..CHECKSUM_SIZE].try_into().map_err(|_| ReadError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, "Failed to convert checksum")))?;
+		let checksum_computed = calculate_checksum(&buffer[..parameters_end]);
+
 		let response = ResponsePacket { bus: self, message_length, parameter_count};
+
+		// This causes the `ResponsePacket` to drop which removes the message from the read buffer.
+		crate::InvalidChecksum::check(checksum_message, checksum_computed)?;
+
 		debug_assert_eq!(response.data_length(), parameter_count as u8);
 
 		// crate::InvalidInstruction::check(response.instruction_id(), crate::instructions::instruction_id::STATUS)?;
-		// crate::MotorError::check(response.error())?;
+		// This causes the `ResponsePacket` to drop which removes the message from the read buffer.
+		crate::MotorError::check(response.error())?;
+
 		Ok(response)
-	}
-	pub fn scan_motors(&mut self) -> Result<(), crate::MotorError>{
-		todo!();
 	}
 
 	// /// Remove leading garbage data from the read buffer.
@@ -272,6 +231,24 @@ where
 	message_length: usize,
 
 	parameter_count: usize,
+}
+
+impl<ReadBuffer, WriteBuffer>  std::fmt::Debug for ResponsePacket<'_, ReadBuffer, WriteBuffer>
+where ReadBuffer: AsRef<[u8]> + AsMut<[u8]>,
+	WriteBuffer: AsRef<[u8]> + AsMut<[u8]>, {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("ResponsePacket")
+			.field("sender_id", &self.sender_id())
+			.field("receiver_id", &self.receiver_id())
+			.field("error", &self.error())
+			.field("message_length", &self.message_length())
+			.field("write", &self.write())
+			.field("command", &self.command())
+			.field("data_length", &self.data_length())
+			.field("data", &self.data())
+			.finish()
+	}
+
 }
 
 impl<'a, ReadBuffer, WriteBuffer> ResponsePacket<'a, ReadBuffer, WriteBuffer>
@@ -343,12 +320,6 @@ pub struct Response<T> {
 	/// The motor that sent the response.
 	pub motor_id: u8,
 
-	/// The alert bit from the response message.
-	///
-	/// If this is set, you can normally check the "Hardware Error" register for more details.
-	/// Consult your motor manual for more details.
-	pub error: bool,
-
 	/// The data from the motor.
 	pub data: T,
 }
@@ -380,7 +351,6 @@ where
 		Self {
 			data: (),
 			motor_id: status_packet.sender_id(),
-			error: status_packet.error(),
 		}
 	}
 }
@@ -453,8 +423,15 @@ mod test {
 		let msg = Bus::<Vec<u8>, Vec<u8>>::format_write(buff.as_mut(), 0x01, RegisterAddress::POS_CURRENT.as_bytes()[0], 0, false, |_buffer| {});
 
 		assert_eq!(msg, [0xAA, 0x01, 0x01, 0x31, 0xB0, 0x78]);
+	}
 
-
+	#[test]
+	#[should_panic]
+	fn test_parse_read() {
+		let mut bus = Bus::open_with_buffers("/dev/ttyUSB0", 4000000, vec![0; 128], vec![0; 128]).unwrap();
+		<Vec<u8> as AsMut<[u8]>>::as_mut(&mut bus.read_buffer)[..7].copy_from_slice(&[0x01, 0xAA, 0x02, 0x12,0x35, 0x55, 0xDF]);
+		bus.read_len = 7;
+		bus.parse_read(6, 1).unwrap();
 	}
 	// #[test]
 // 	fn test_find_garbage_end() {

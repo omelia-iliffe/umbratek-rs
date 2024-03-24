@@ -34,9 +34,7 @@ pub enum InvalidMessage {
 
 /// An error reported by the motor.
 #[derive(Debug)]
-pub struct MotorError {
-	pub raw: u8,
-}
+pub struct MotorError;
 
 /// The received message has an invalid header prefix.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -50,6 +48,15 @@ pub struct InvalidHeaderPrefix {
 pub struct InvalidChecksum {
 	pub message: [u8; 2],
 	pub computed: [u8; 2],
+}
+impl InvalidChecksum {
+	pub fn check(message: [u8; 2], computed: [u8; 2]) -> Result<(), Self> {
+		if message == computed {
+			Ok(())
+		} else {
+			Err(Self { message, computed })
+		}
+	}
 }
 
 /// The received message has an invalid or unexpected packet ID.
@@ -81,13 +88,13 @@ pub struct InvalidParameterCount {
 }
 
 impl MotorError {
-	pub fn check(raw: u8) -> Result<(), Self> {
+	pub fn check(raw: bool) -> Result<(), Self> {
 		// Ignore the alert bit for this check.
 		// If the alert bit is set, the motor encountered an error, but the instruction was still executed.
-		if raw & !0x80 == 0 {
-			Ok(())
+		if raw{
+			Err(Self)
 		} else {
-			Err(Self { raw })
+			Ok(())
 		}
 	}
 }
@@ -309,7 +316,7 @@ impl std::fmt::Display for InvalidMessage {
 
 impl std::fmt::Display for MotorError {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "motor reported error status: {:#02X}", self.raw,)
+		write!(f, "motor reported error status")
 	}
 }
 
