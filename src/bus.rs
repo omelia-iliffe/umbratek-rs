@@ -1,7 +1,4 @@
-use std::fmt::Debug;
 use serial2::SerialPort;
-use std::io::Read;
-use std::path::Path;
 
 use crate::checksum::calculate_checksum;
 use crate::{ReadError, TransferError, WriteError};
@@ -37,7 +34,7 @@ impl Bus<Vec<u8>, Vec<u8>> {
 	///
 	/// This will allocate a new read and write buffer of 128 bytes each.
 	/// Use [`Self::open_with_buffers()`] if you want to use a custom buffers.
-	pub fn open(path: impl AsRef<Path>, baud_rate: u32) -> std::io::Result<Self> {
+	pub fn open(path: impl AsRef<std::path::Path>, baud_rate: u32) -> std::io::Result<Self> {
 		let port = SerialPort::open(path, baud_rate)?;
 		Ok(Self::new(port))
 	}
@@ -60,7 +57,7 @@ where
 	///
 	/// This will allocate a new read and write buffer of 128 bytes each.
 	pub fn open_with_buffers(
-		path: impl AsRef<Path>,
+		path: impl AsRef<std::path::Path>,
 		baud_rate: u32,
 		read_buffer: ReadBuffer,
 		write_buffer: WriteBuffer,
@@ -129,7 +126,7 @@ where
 		let buffer = self.write_buffer.as_mut();
 		if buffer.len() < HEADER_SIZE + parameter_count + 2 {
 			// TODO: return proper error.
-			panic!("write buffer not large enough for outgoing mesage");
+			panic!("write buffer not large enough for outgoing message");
 		}
 
 		let stuffed_message = Self::format_write(buffer, motor_id, command, parameter_count, write, encode_parameters);
@@ -139,9 +136,10 @@ where
 		Ok(())
 	}
 
-	fn format_write<F>(buffer: &mut [u8], motor_id: u8, command: u8, parameter_count: usize, write: bool, encode_parameters: F,
-	) -> &[u8] where
-		F: FnOnce(&mut [u8]), {
+	fn format_write<F>(buffer: &mut [u8], motor_id: u8, command: u8, parameter_count: usize, write: bool, encode_parameters: F) -> &[u8]
+	where
+		F: FnOnce(&mut [u8]),
+	{
 		let state = 0;
 
 		// Add the header, with a placeholder for the length field.
@@ -150,7 +148,7 @@ where
 		buffer[2] = (state & 0x01 << 7) | (parameter_count as u8 + 1) & 0x7F;
 		buffer[3] = ((write as u8) << 7) | (command & 0x7F);
 		if parameter_count > 0 {
-			encode_parameters(&mut buffer[HEADER_SIZE..][..parameter_count as usize]);
+			encode_parameters(&mut buffer[HEADER_SIZE..][..parameter_count]);
 		}
 
 		// Add checksum.
@@ -165,7 +163,6 @@ where
 	}
 	/// Read a raw status response from the bus.
 	pub fn read_status_response(&mut self, parameter_count: usize) -> Result<ResponsePacket<ReadBuffer, WriteBuffer>, ReadError> {
-
 		let message_length = parameter_count + HEADER_SIZE + CHECKSUM_SIZE; // + checksum
 
 		let buffer = self.read_buffer.as_mut();
@@ -177,14 +174,20 @@ where
 		self.parse_read(message_length, parameter_count)
 	}
 
-	fn parse_read(&mut self, message_length: usize, parameter_count:usize) -> Result<ResponsePacket<ReadBuffer, WriteBuffer>, ReadError>{
+	fn parse_read(&mut self, message_length: usize, parameter_count: usize) -> Result<ResponsePacket<ReadBuffer, WriteBuffer>, ReadError> {
 		let buffer = self.read_buffer.as_mut();
 
 		let parameters_end = parameter_count + HEADER_SIZE;
-		let checksum_message:[u8; 2] = buffer[parameters_end..][..CHECKSUM_SIZE].try_into().map_err(|_| ReadError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, "Failed to convert checksum")))?;
+		let checksum_message: [u8; 2] = buffer[parameters_end..][..CHECKSUM_SIZE]
+			.try_into()
+			.map_err(|_| ReadError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, "Failed to convert checksum")))?;
 		let checksum_computed = calculate_checksum(&buffer[..parameters_end]);
 
-		let response = ResponsePacket { bus: self, message_length, parameter_count};
+		let response = ResponsePacket {
+			bus: self,
+			message_length,
+			parameter_count,
+		};
 
 		// This causes the `ResponsePacket` to drop which removes the message from the read buffer.
 		crate::InvalidChecksum::check(checksum_message, checksum_computed)?;
@@ -233,9 +236,11 @@ where
 	parameter_count: usize,
 }
 
-impl<ReadBuffer, WriteBuffer>  std::fmt::Debug for ResponsePacket<'_, ReadBuffer, WriteBuffer>
-where ReadBuffer: AsRef<[u8]> + AsMut<[u8]>,
-	WriteBuffer: AsRef<[u8]> + AsMut<[u8]>, {
+impl<ReadBuffer, WriteBuffer> std::fmt::Debug for ResponsePacket<'_, ReadBuffer, WriteBuffer>
+where
+	ReadBuffer: AsRef<[u8]> + AsMut<[u8]>,
+	WriteBuffer: AsRef<[u8]> + AsMut<[u8]>,
+{
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("ResponsePacket")
 			.field("sender_id", &self.sender_id())
@@ -248,7 +253,6 @@ where ReadBuffer: AsRef<[u8]> + AsMut<[u8]>,
 			.field("data", &self.data())
 			.finish()
 	}
-
 }
 
 impl<'a, ReadBuffer, WriteBuffer> ResponsePacket<'a, ReadBuffer, WriteBuffer>
@@ -323,7 +327,6 @@ pub struct Response<T> {
 	/// The data from the motor.
 	pub data: T,
 }
-
 
 // impl<'a, ReadBuffer, WriteBuffer, Reg> TryFrom<ResponsePacket<'a, ReadBuffer, WriteBuffer>> for Response<Reg>
 // where
@@ -411,12 +414,11 @@ where
 // 	}
 // }
 
-
 #[cfg(test)]
 mod test {
+	use super::*;
 	use crate::protocol::Register;
 	use crate::registers;
-	use super::*;
 	#[test]
 	fn test_format_write() {
 		let mut buff = vec![0; 128];
@@ -429,25 +431,25 @@ mod test {
 	#[should_panic]
 	fn test_parse_read() {
 		let mut bus = Bus::open_with_buffers("/dev/ttyUSB0", 4000000, vec![0; 128], vec![0; 128]).unwrap();
-		<Vec<u8> as AsMut<[u8]>>::as_mut(&mut bus.read_buffer)[..7].copy_from_slice(&[0x01, 0xAA, 0x02, 0x12,0x35, 0x55, 0xDF]);
+		<Vec<u8> as AsMut<[u8]>>::as_mut(&mut bus.read_buffer)[..7].copy_from_slice(&[0x01, 0xAA, 0x02, 0x12, 0x35, 0x55, 0xDF]);
 		bus.read_len = 7;
 		bus.parse_read(6, 1).unwrap();
 	}
 	// #[test]
-// 	fn test_find_garbage_end() {
-// 		assert!(find_header(&[0xFF]) == 0);
-// 		assert!(find_header(&[0xFF, 0xFF]) == 0);
-// 		assert!(find_header(&[0xFF, 0xFF, 0xFD]) == 0);
-// 		assert!(find_header(&[0xFF, 0xFF, 0xFD, 0x00]) == 0);
-// 		assert!(find_header(&[0xFF, 0xFF, 0xFD, 0x00, 9]) == 0);
+	// 	fn test_find_garbage_end() {
+	// 		assert!(find_header(&[0xFF]) == 0);
+	// 		assert!(find_header(&[0xFF, 0xFF]) == 0);
+	// 		assert!(find_header(&[0xFF, 0xFF, 0xFD]) == 0);
+	// 		assert!(find_header(&[0xFF, 0xFF, 0xFD, 0x00]) == 0);
+	// 		assert!(find_header(&[0xFF, 0xFF, 0xFD, 0x00, 9]) == 0);
 
-// 		assert!(find_header(&[0, 1, 2, 3, 4, 0xFF]) == 5);
-// 		assert!(find_header(&[0, 1, 2, 3, 4, 0xFF, 0xFF]) == 5);
-// 		assert!(find_header(&[0, 1, 2, 3, 4, 0xFF, 0xFF, 0xFD]) == 5);
-// 		assert!(find_header(&[0, 1, 2, 3, 4, 0xFF, 0xFF, 0xFD, 0x00]) == 5);
-// 		assert!(find_header(&[0, 1, 2, 3, 4, 0xFF, 0xFF, 0xFD, 0x00, 9]) == 5);
+	// 		assert!(find_header(&[0, 1, 2, 3, 4, 0xFF]) == 5);
+	// 		assert!(find_header(&[0, 1, 2, 3, 4, 0xFF, 0xFF]) == 5);
+	// 		assert!(find_header(&[0, 1, 2, 3, 4, 0xFF, 0xFF, 0xFD]) == 5);
+	// 		assert!(find_header(&[0, 1, 2, 3, 4, 0xFF, 0xFF, 0xFD, 0x00]) == 5);
+	// 		assert!(find_header(&[0, 1, 2, 3, 4, 0xFF, 0xFF, 0xFD, 0x00, 9]) == 5);
 
-// 		assert!(find_header(&[0xFF, 1]) == 2);
-// 		assert!(find_header(&[0, 1, 2, 3, 4, 0xFF, 6]) == 7);
-// 	}
+	// 		assert!(find_header(&[0xFF, 1]) == 2);
+	// 		assert!(find_header(&[0, 1, 2, 3, 4, 0xFF, 6]) == 7);
+	// 	}
 }

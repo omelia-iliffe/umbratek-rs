@@ -91,7 +91,7 @@ impl MotorError {
 	pub fn check(raw: bool) -> Result<(), Self> {
 		// Ignore the alert bit for this check.
 		// If the alert bit is set, the motor encountered an error, but the instruction was still executed.
-		if raw{
+		if raw {
 			Err(Self)
 		} else {
 			Ok(())

@@ -1,6 +1,5 @@
-use crate::{Bus, Response, TransferError};
 use crate::protocol::{Register, Writable};
-use zerocopy::AsBytes;
+use crate::{Bus, Response, TransferError};
 impl<ReadBuffer, WriteBuffer> Bus<ReadBuffer, WriteBuffer>
 where
 	ReadBuffer: AsRef<[u8]> + AsMut<[u8]>,
@@ -18,7 +17,7 @@ where
 		Ok(response.into())
 	}
 
-    pub fn write<Reg: Register + Writable>(&mut self, motor_id: u8, register: Reg) -> Result<Response<()>, TransferError> {
-        self.write_raw(motor_id, Reg::address().as_bytes()[0], &register.as_bytes())
-    }
+	pub fn write<Reg: Register + Writable>(&mut self, motor_id: u8, register: Reg) -> Result<Response<()>, TransferError> {
+		self.write_raw(motor_id, Reg::address(), &register.as_bytes())
+	}
 }
