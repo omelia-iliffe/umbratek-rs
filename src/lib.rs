@@ -28,4 +28,4 @@ pub use error::WriteError;
 
 pub use bus::{Bus, Response};
 
-pub use protocol::RegisterAddress;
+pub use protocol::registers;

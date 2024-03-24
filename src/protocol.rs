@@ -1,7 +1,6 @@
 use std::io::Read;
 use byteorder::{ReadBytesExt, BE};
 use num_derive::FromPrimitive;
-use zerocopy::AsBytes;
 
 macro_rules! register {
     (@register $reg:ident : $addr:expr, $type:ty) => {
@@ -18,7 +17,7 @@ macro_rules! register {
         }
 
         impl Register for $reg {
-            fn address() -> RegisterAddress {
+            fn address() -> u8 {
                 $addr
             }
             fn size() -> u8 {
@@ -57,92 +56,9 @@ macro_rules! register {
     };
 }
 
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, AsBytes, FromPrimitive, PartialEq, Eq, Hash)]
-#[allow(non_camel_case_types)] // TODO: Fix cases
-pub enum RegisterAddress {
-    UUID = 0x01,
-    SW_VERSION = 0x02,
-    HW_VERSION = 0x03,
-    MULTI_VERSION = 0x04,
-    MECH_RATIO = 0x05,
-    COM_ID = 0x08,
-    COM_BAUD = 0x09,
-    RESET_ERR = 0x0C,
-    RESET_DRIVER = 0x0D,
-    ERASE_PARM = 0x0E,
-    SAVED_PARM = 0x0F,
-    ELEC_RATIO = 0x10,
-    MOTION_DIR = 0x11,
-    IWDG_CYC = 0x12,
-    TEMP_LIMIT = 0x18,
-    VOLT_LIMIT = 0x19,
-    CURR_LIMIT = 0x1A,
-    BRAKE_DELAY = 0x1B,
-    BRAKE_PWM = 0x1F,
-    MOTION_MODE = 0x20,
-    MOTION_ENABLE = 0x21,
-    BRAKE_ENABLE = 0x22,
-    TEMP_DRIVER = 0x28,
-    TEMP_MOTOR = 0x29,
-    BUS_VOLT = 0x2A,
-    BUS_CURR = 0x2B,
-    BATT_VOLT = 0x2C,
-    ERROR_CODE = 0x2F,
-    POS_TARGET = 0x30,
-    POS_CURRENT = 0x31,
-    POS_LIMIT_MAX = 0x32,
-    POS_LIMIT_MIN = 0x33,
-    POS_LIMIT_DIFF = 0x34,
-    POS_PIDP = 0x35,
-    POS_SMOOTH_CYC = 0x36,
-    POS_ADRC_PARAM = 0x39,
-    POS_CAL_ZERO = 0x3F,
-    VEL_TARGET = 0x40,
-    VEL_CURRENT = 0x41,
-    VEL_LIMIT_MAX = 0x42,
-    VEL_LIMIT_MIN = 0x43,
-    VEL_LIMIT_DIFF = 0x44,
-    VEL_PIDP = 0x45,
-    VEL_PIDI = 0x46,
-    VEL_SMOOTH_CYC = 0x47,
-    VEL_ADRC_PARAM = 0x49,
-    TAU_TARGET = 0x50,
-    TAU_CURRENT = 0x51,
-    TAU_LIMIT_MAX = 0x52,
-    TAU_LIMIT_MIN = 0x53,
-    TAU_LIMIT_DIFF = 0x54,
-    TAU_PIDP = 0x55,
-    TAU_PIDI = 0x56,
-    TAU_SMOOTH_CYC = 0x57,
-    TAU_ADRC_PARAM = 0x59,
-    CPOS_TARGET = 0x60,
-    CTAU_TARGET = 0x61,
-    CPOSTAU_TARGET = 0x62,
-    CPOSVEL_TARGET = 0x64,
-    SPOSTAU_CURRENT = 0x68,
-    CPOSTAU_CURRENT = 0x69
-// 
-// # Registers read via ADRC, VALUE IS NOT THE ADDRESS
-// POS_ACCELERATION = 1000
-// POS_VELOCITY_COMP = 1001
-// POS_INTERFERENCE_COMP = 1003
-// POS_TRACKING_TIME = 1004
-// POS_TRACKING_DIFF = 1005
-// VEL_ACCELERATION = 1006
-// VEL_VELOCITY_COMP = 1007
-// VEL_INTERFERENCE_COMP = 1008
-// VEL_TRACKING_TIME = 1009
-// VEL_TRACKING_DIFF = 1010
-// TAU_ACCELERATION = 1011
-// TAU_VELOCITY_COMP = 1012
-// TAU_INTERFERENCE_COMP = 1013
-// TAU_TRACKING_TIME = 1014
-// TAU_TRACKING_DIFF = 1015
-}
 
 pub trait Register {
-    fn address() -> RegisterAddress;
+    fn address() -> u8;
     fn size() -> u8;
 }
 
@@ -164,66 +80,66 @@ pub trait IntoBytes {
 
 pub mod registers {
     use super::*;
-    register!(UUID: RegisterAddress::UUID, [u8; 12], R);
-    register!(SWVersion: RegisterAddress::SW_VERSION, [u8; 12], R);
-    register!(HWVersion: RegisterAddress::HW_VERSION, [u8; 12], R);
-    register!(MultiVersion: RegisterAddress::MULTI_VERSION, [u8; 12], R);
-    register!(MechRatio: RegisterAddress::MECH_RATIO, f32, RW);
-    register!(ComID: RegisterAddress::COM_ID, u8, W);
-    register!(ComBaud: RegisterAddress::COM_BAUD, u32, W);
-    register!(ResetErr: RegisterAddress::RESET_ERR, (), W);
-    register!(ResetDriver: RegisterAddress::RESET_DRIVER, (), W);
-    register!(EraseParm: RegisterAddress::ERASE_PARM, (), W);
-    register!(SavedParm: RegisterAddress::SAVED_PARM, (), W);
+    register!(UUID: 0x01, [u8; 12], R);
+    register!(SWVersion: 0x02, [u8; 12], R);
+    register!(HWVersion: 0x03, [u8; 12], R);
+    register!(MultiVersion: 0x04, [u8; 12], R);
+    register!(MechRatio: 0x05, f32, RW);
+    register!(ComID: 0x08, u8, W);
+    register!(ComBaud: 0x09, u32, W);
+    register!(ResetErr: 0x0C, (), W);
+    register!(ResetDriver: 0x0D, (), W);
+    register!(EraseParm: 0x0E, (), W);
+    register!(SavedParm: 0x0F, (), W);
 
-    register!(ElecRatio: RegisterAddress::ELEC_RATIO, f32, RW);
-    register!(MotionDir: RegisterAddress::MOTION_DIR, bool, RW);
-    register!(IWDGCyc: RegisterAddress::IWDG_CYC, u32, RW);
-    register!(TempLimit: RegisterAddress::TEMP_LIMIT, Limit<i8>, RW);
-    register!(VoltLimit: RegisterAddress::VOLT_LIMIT, Limit<u8>, RW);
-    register!(CurrLimit: RegisterAddress::CURR_LIMIT, f32, RW);
-// register!(BrakeDelay: RegisterAddress::BRAKE_DELAY, u32, RW);
-// register!(BrakePWM: RegisterAddress::BRAKE_PWM, u8, RW);
+    register!(ElecRatio: 0x10, f32, RW);
+    register!(MotionDir: 0x11, bool, RW);
+    register!(IWDGCyc: 0x12, u32, RW);
+    register!(TempLimit: 0x18, Limit<i8>, RW);
+    register!(VoltLimit: 0x19, Limit<u8>, RW);
+    register!(CurrLimit: 0x1A, f32, RW);
+// register!(BrakeDelay: 0x1B, u32, RW);
+// register!(BrakePWM: 0x1F, u8, RW);
 
-    register!(MotionMode: RegisterAddress::MOTION_MODE, MotionModes, RW);
-    register!(MotionEnable: RegisterAddress::MOTION_ENABLE, bool, RW);
-    register!(BrakeEnable: RegisterAddress::BRAKE_ENABLE, bool, RW);
-    register!(TempDriver: RegisterAddress::TEMP_DRIVER, f32, R);
-    register!(TempMotor: RegisterAddress::TEMP_MOTOR, f32, R);
-    register!(BusVolt: RegisterAddress::BUS_VOLT, f32, R);
-    register!(BusCurr: RegisterAddress::BUS_CURR, f32, R);
-    register!(BattVolt: RegisterAddress::BATT_VOLT, f32, R);
-    register!(ErrorCode: RegisterAddress::ERROR_CODE, ErrorCodes, R);
+    register!(MotionMode: 0x20, MotionModes, RW);
+    register!(MotionEnable: 0x21, bool, RW);
+    register!(BrakeEnable: 0x22, bool, RW);
+    register!(TempDriver: 0x28, f32, R);
+    register!(TempMotor: 0x29, f32, R);
+    register!(BusVolt: 0x2A, f32, R);
+    register!(BusCurr: 0x2B, f32, R);
+    register!(BattVolt: 0x2C, f32, R);
+    register!(ErrorCode: 0x2F, ErrorCodes, R);
 
-    register!(PositionTarget: RegisterAddress::POS_TARGET, f32, RW);
-    register!(PositionCurrent: RegisterAddress::POS_CURRENT, f32, R);
-    register!(PositionLimitMax: RegisterAddress::POS_LIMIT_MAX, f32, RW);
-    register!(PositionLimitMin: RegisterAddress::POS_LIMIT_MIN, f32, RW);
-    register!(PositionLimitDiff: RegisterAddress::POS_LIMIT_DIFF, f32, RW);
-    register!(PositionPIDP: RegisterAddress::POS_PIDP, f32, RW);
-    register!(PositionSmoothCyc: RegisterAddress::POS_SMOOTH_CYC, u8, RW);
-    // register!(PositionADRCParam: RegisterAddress::POS_ADRC_PARAM, f32, RW);
-    register!(PositionCalZero: RegisterAddress::POS_CAL_ZERO, u8, W);
+    register!(PositionTarget: 0x30, f32, RW);
+    register!(PositionCurrent: 0x31, f32, R);
+    register!(PositionLimitMax: 0x32, f32, RW);
+    register!(PositionLimitMin: 0x33, f32, RW);
+    register!(PositionLimitDiff: 0x34, f32, RW);
+    register!(PositionPIDP: 0x35, f32, RW);
+    register!(PositionSmoothCyc: 0x36, u8, RW);
+    // register!(PositionADRCParam: 0x39, f32, RW);
+    register!(PositionCalZero: 0x3F, u8, W);
 
-    register!(VelocityTarget: RegisterAddress::VEL_TARGET, f32, RW);
-    register!(VelocityCurrent: RegisterAddress::VEL_CURRENT, f32, R);
-    register!(VelocityLimitMax: RegisterAddress::VEL_LIMIT_MAX, f32, RW);
-    register!(VelocityLimitMin: RegisterAddress::VEL_LIMIT_MIN, f32, RW);
-    register!(VelocityLimitDiff: RegisterAddress::VEL_LIMIT_DIFF, f32, RW);
-    register!(VelocityPIDP: RegisterAddress::VEL_PIDP, f32, RW);
-    register!(VelocityPIDI: RegisterAddress::VEL_PIDI, f32, RW);
-    register!(VelocitySmoothCyc: RegisterAddress::VEL_SMOOTH_CYC, u8, RW);
-// register!(VelocityADRCParam: RegisterAddress::VEL_ADRC_PARAM, f32, RW);
+    register!(VelocityTarget: 0x40, f32, RW);
+    register!(VelocityCurrent: 0x41, f32, R);
+    register!(VelocityLimitMax: 0x42, f32, RW);
+    register!(VelocityLimitMin: 0x43, f32, RW);
+    register!(VelocityLimitDiff: 0x44, f32, RW);
+    register!(VelocityPIDP: 0x45, f32, RW);
+    register!(VelocityPIDI: 0x46, f32, RW);
+    register!(VelocitySmoothCyc: 0x47, u8, RW);
+// register!(VelocityADRCParam: 0x49, f32, RW);
 
-    register!(TorqueTarget: RegisterAddress::TAU_TARGET, f32, RW);
-    register!(TorqueCurrent: RegisterAddress::TAU_CURRENT, f32, R);
-    register!(TorqueLimitMax: RegisterAddress::TAU_LIMIT_MAX, f32, RW);
-    register!(TorqueLimitMin: RegisterAddress::TAU_LIMIT_MIN, f32, RW);
-    register!(TorqueLimitDiff: RegisterAddress::TAU_LIMIT_DIFF, f32, RW);
-    register!(TorquePIDP: RegisterAddress::TAU_PIDP, f32, RW);
-    register!(TorquePIDI: RegisterAddress::TAU_PIDI, f32, RW);
-    register!(TorqueSmoothCyc: RegisterAddress::TAU_SMOOTH_CYC, u8, RW);
-// register!(TorqueADRCParam: RegisterAddress::TAU_ADRC_PARAM, f32, RW);
+    register!(TorqueTarget: 0x50, f32, RW);
+    register!(TorqueCurrent: 0x51, f32, R);
+    register!(TorqueLimitMax: 0x52, f32, RW);
+    register!(TorqueLimitMin: 0x53, f32, RW);
+    register!(TorqueLimitDiff: 0x54, f32, RW);
+    register!(TorquePIDP: 0x55, f32, RW);
+    register!(TorquePIDI: 0x56, f32, RW);
+    register!(TorqueSmoothCyc: 0x57, u8, RW);
+// register!(TorqueADRCParam: 0x59, f32, RW);
 }
 
 #[allow(non_camel_case_types)] // TODO: Fix cases

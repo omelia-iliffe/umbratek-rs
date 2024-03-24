@@ -414,13 +414,13 @@ where
 
 #[cfg(test)]
 mod test {
-	use zerocopy::AsBytes;
+	use crate::protocol::Register;
+	use crate::registers;
 	use super::*;
-	use crate::RegisterAddress;
 	#[test]
 	fn test_format_write() {
 		let mut buff = vec![0; 128];
-		let msg = Bus::<Vec<u8>, Vec<u8>>::format_write(buff.as_mut(), 0x01, RegisterAddress::POS_CURRENT.as_bytes()[0], 0, false, |_buffer| {});
+		let msg = Bus::<Vec<u8>, Vec<u8>>::format_write(buff.as_mut(), 0x01, registers::PositionCurrent::address(), 0, false, |_buffer| {});
 
 		assert_eq!(msg, [0xAA, 0x01, 0x01, 0x31, 0xB0, 0x78]);
 	}
