@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use byteorder::{ReadBytesExt, BE};
 use num_derive::FromPrimitive;
 use std::io::Read;
@@ -145,62 +146,94 @@ pub mod registers {
 	// register!(TorqueADRCParam: 0x59, f32, RW);
 }
 
-#[derive(Debug, FromPrimitive, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorCodes {
-	NoError = 0,
-	FlashError = 1,
-	PreDriverCommunicationError = 2,
-	MultiTurnCommunicationError = 3,
-	CurrentSamplingError = 4,
-	EepromError = 5,
-	StorageDataError = 6,
-	BatteryVoltageTooLow = 7,
-	EncoderCalculateError = 8, // Keep motor stationary during power on,
-	EncoderError1 = 9,
-	EncoderError2 = 10,
-	ElectricalAngleError = 11,
-	EncoderLinearError = 12,
-	MultiTurnCalibrateError = 13,
-	ZeroCalibrateError = 14,
-	HallCalibrationError = 15,
-	EncoderCalculateError1 = 16,
-	EncoderCalculateError2 = 17,
-	MuCommunicationError = 18,
-	MuStatusError = 19,
-	PreDriveAlarm = 21,
-	MultiTurnCalculateError = 22,
-	CurrentTemperatureOutOfRange = 23,
-	CurrentVoltageOutOfRange = 24,
-	PhaseAAlarm = 25,
-	PhaseBAlarm = 26,
-	PhaseCAlarm = 27,
-	PositionFollowingAlarm = 31, // Auto cleared when torque enabled
-	CurrentSpeedOutOfRange = 32,
-	CurrentPowerOutOfRange = 33,
-	TargetPositionOutOfRange = 34,
-	TargetSpeedOutOfRange = 35,
-	TargetTorqueOutOfRange = 36,
-	CurrentPositionOutOfRange = 37,
-	RegisterAddressError = 40,
-	RegisterValueError = 41,
-	BroadcastReadCommandTimedOut = 42,
-	EncoderSpeedError = 91,
+	NoError,
+	FlashError,
+	PreDriverCommunicationError,
+	MultiTurnCommunicationError,
+	CurrentSamplingError,
+	EepromError,
+	StorageDataError,
+	BatteryVoltageTooLow,
+	EncoderCalculateError, // Keep motor stationary during power on,
+	EncoderError1,
+	EncoderError2,
+	ElectricalAngleError,
+	EncoderLinearError,
+	MultiTurnCalibrateError,
+	ZeroCalibrateError,
+	HallCalibrationError,
+	EncoderCalculateError1,
+	EncoderCalculateError2,
+	MuCommunicationError,
+	MuStatusError,
+	PreDriveAlarm,
+	MultiTurnCalculateError,
+	CurrentTemperatureOutOfRange,
+	CurrentVoltageOutOfRange,
+	PhaseAAlarm,
+	PhaseBAlarm,
+	PhaseCAlarm,
+	PositionFollowingAlarm, // Auto cleared when torque enabled
+	CurrentSpeedOutOfRange,
+	CurrentPowerOutOfRange,
+	TargetPositionOutOfRange,
+	TargetSpeedOutOfRange,
+	TargetTorqueOutOfRange,
+	CurrentPositionOutOfRange,
+	RegisterAddressError,
+	RegisterValueError,
+	BroadcastReadCommandTimedOut,
+	EncoderSpeedError,
+	Unknown(u8)
 }
 
 impl TryFromBytes for ErrorCodes {
 	fn try_from_bytes(bytes: &[u8]) -> Result<Self, std::io::Error> {
 		let mut rdr = std::io::Cursor::new(bytes);
 		let value = rdr.read_u8()?;
-		match num_traits::FromPrimitive::from_u8(value) {
-			Some(v) => Ok(v),
-			None => Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid Error Code")),
-		}
-	}
-}
-
-impl AsBytes for ErrorCodes {
-	fn as_bytes(&self) -> Vec<u8> {
-		vec![*self as u8]
+		Ok(match value {
+			0 => ErrorCodes::NoError,
+			1 => ErrorCodes::FlashError,
+			2 => ErrorCodes::PreDriverCommunicationError,
+			3 => ErrorCodes::MultiTurnCommunicationError,
+			4 => ErrorCodes::CurrentSamplingError,
+			5 => ErrorCodes::EepromError,
+			6 => ErrorCodes::StorageDataError,
+			7 => ErrorCodes::BatteryVoltageTooLow,
+			8 => ErrorCodes::EncoderCalculateError,
+			9 => ErrorCodes::EncoderError1,
+			10 => ErrorCodes::EncoderError2,
+			11 => ErrorCodes::ElectricalAngleError,
+			12 => ErrorCodes::EncoderLinearError,
+			13 => ErrorCodes::MultiTurnCalibrateError,
+			14 => ErrorCodes::ZeroCalibrateError,
+			15 => ErrorCodes::HallCalibrationError,
+			16 => ErrorCodes::EncoderCalculateError1,
+			17 => ErrorCodes::EncoderCalculateError2,
+			18 => ErrorCodes::MuCommunicationError,
+			19 => ErrorCodes::MuStatusError,
+			21 => ErrorCodes::PreDriveAlarm,
+			22 => ErrorCodes::MultiTurnCalculateError,
+			23 => ErrorCodes::CurrentTemperatureOutOfRange,
+			24 => ErrorCodes::CurrentVoltageOutOfRange,
+			25 => ErrorCodes::PhaseAAlarm,
+			26 => ErrorCodes::PhaseBAlarm,
+			27 => ErrorCodes::PhaseCAlarm,
+			31 => ErrorCodes::PositionFollowingAlarm,
+			32 => ErrorCodes::CurrentSpeedOutOfRange,
+			33 => ErrorCodes::CurrentPowerOutOfRange,
+			34 => ErrorCodes::TargetPositionOutOfRange,
+			35 => ErrorCodes::TargetSpeedOutOfRange,
+			36 => ErrorCodes::TargetTorqueOutOfRange,
+			37 => ErrorCodes::CurrentPositionOutOfRange,
+			40 => ErrorCodes::RegisterAddressError,
+			41 => ErrorCodes::RegisterValueError,
+			42 => ErrorCodes::BroadcastReadCommandTimedOut,
+			91 => ErrorCodes::EncoderSpeedError,
+			_ => ErrorCodes::Unknown(value),
+		})
 	}
 }
 

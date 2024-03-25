@@ -1,0 +1,12 @@
+[package]
+name = "simple-tui"
+version = "0.1.0"
+authors = ["Omelia Iliffe <omelia.iliffe@wetaworkshop.co.nz>"]
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+crossterm = "0.27.0"
+ratatui = "0.26.0"
+
+[workspace]
