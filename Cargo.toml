@@ -1,6 +1,5 @@
-workspace = { members = ["examples/simple_ui"] }
 [package]
-name = "umbratek-rs"
+name = "umbratek"
 version = "0.1.0"
 edition = "2021"
 
