@@ -7,6 +7,7 @@
 pub use serial2;
 
 pub use bus::{Bus, Response};
+pub use commands::BroadcastWriteData;
 pub use error::InvalidChecksum;
 pub use error::InvalidHeaderPrefix;
 pub use error::InvalidInstruction;
@@ -29,4 +30,4 @@ mod bus;
 mod commands;
 
 pub mod protocol;
-
+pub mod broadcast_registers;
