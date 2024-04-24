@@ -291,7 +291,7 @@ impl<'a, ReadBuffer, WriteBuffer> ResponsePacket<'a, ReadBuffer, WriteBuffer>
 
     /// The state bit of the response.
     pub fn error(&self) -> bool {
-        (self.as_bytes()[2] & 0x80 >> 7) == 1
+        (self.as_bytes()[2] & 0x80) != 0
     }
 
     // The number of bytes of data in the response + the instruction byte
