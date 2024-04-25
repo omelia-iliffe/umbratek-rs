@@ -11,5 +11,6 @@ env_logger = "0.11.3"
 log = "0.4.8"
 num-derive = "0.4.2"
 num-traits = "0.2.18"
-serial2 = "0.2.12"
+serial2 = { version = "0.2.24", features = ["unix", "rs4xx"] }
 zerocopy = { version = "0.7.32", features = ["zerocopy-derive", "derive"] }
+itertools = "0.12.1"

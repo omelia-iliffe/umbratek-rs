@@ -14,14 +14,14 @@ pub trait BroadcastRegister {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BuilderError {
     Empty,
-    NonSequentialID,
+    NonSequentialID { expected: u8, got: u8 },
 }
 
 impl std::fmt::Display for BuilderError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             BuilderError::Empty => write!(f, "no data has been added to the builder"),
-            BuilderError::NonSequentialID => write!(f, "only sequential ids are supported"),
+            BuilderError::NonSequentialID { expected, got } => write!(f, "only sequential ids are supported expected {expected} got {got}"),
         }
     }
 }
@@ -61,10 +61,11 @@ impl BroadcastPositionBuilder {
             return Err(BuilderError::Empty);
         }
         let data: Vec<_> = self.0.into_iter().sorted_by_key(|d| d.0).collect();
-        let (start_id, end_id) = data.first().zip(data.last()).map(|((f, _), (l, _))| { (*f, *l) }).unwrap();
+        let (start_id, end_id) = data.first().zip(data.last()).map(|((f, _), (l, _))| { (*f, *l) }).ok_or(BuilderError::Empty)?;
+
         let data: Vec<_> = data.into_iter().enumerate().map(|(i, (id, data))| {
-            if (i as u8 + id) != start_id + i as u8 {
-                return Err(BuilderError::NonSequentialID);
+            if (id) != start_id + i as u8 {
+                return Err(BuilderError::NonSequentialID { expected: start_id + i as u8, got: (i as u8 + id) });
             }
             Ok(data)
         }).collect::<Result<_, _>>()?;
@@ -115,5 +116,18 @@ impl Writable for BroadcastPosition {
             buffer.extend_from_slice(d.to_be_bytes().as_slice());
         }
         dbg!(buffer)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_builder() {
+        let mut builder = BroadcastPosition::builder();
+        builder.add(3_u8, 3000.0).add(4_u8, 2000.0);
+        let result = builder.build().unwrap();
+        dbg!(result);
     }
 }
