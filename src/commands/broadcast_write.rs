@@ -27,7 +27,7 @@ impl<ReadBuffer, WriteBuffer> Bus<ReadBuffer, WriteBuffer>
             buffer[1] = *last;
             for (i, data) in data.into_iter().enumerate() {
                 assert_eq!(data.len(), count as usize);
-                let buffer = &mut dbg!(&mut buffer[2 + i * stride..])[..stride];
+                let buffer = &mut &mut buffer[2 + i * stride..][..stride];
                 buffer.copy_from_slice(&data);
             }
         })

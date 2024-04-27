@@ -115,7 +115,7 @@ impl Writable for BroadcastPosition {
         for d in self.data.iter() {
             buffer.extend_from_slice(d.to_be_bytes().as_slice());
         }
-        dbg!(buffer)
+        buffer
     }
 }
 
@@ -128,6 +128,11 @@ mod tests {
         let mut builder = BroadcastPosition::builder();
         builder.add(3_u8, 3000.0).add(4_u8, 2000.0);
         let result = builder.build().unwrap();
-        dbg!(result);
+        assert_eq!(result.start_id, 3);
+        assert_eq!(result.end_id, 4);
+        assert_eq!(result.data.len(), 2);
+
+        let packet = result.as_bytes();
+        assert_eq!(packet.len(), 10);
     }
 }

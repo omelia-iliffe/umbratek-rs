@@ -4,6 +4,8 @@
 //!
 //! You can enable the `log` feature to have the library use `log::trace!()` to log all sent instructions and received replies.
 
+#![deny(clippy::print_stdout, clippy::print_stderr, clippy::dbg_macro)]
+
 pub use serial2;
 
 pub use bus::{Bus, Response};
