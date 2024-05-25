@@ -3,12 +3,24 @@ use std::fmt::Formatter;
 
 use itertools::Itertools;
 
-use crate::{AsBytes, Writable};
+use crate::{Readable, Writable};
+use crate::registers::{PositionCurrent, TorqueCurrent};
 
 pub trait BroadcastRegister {
-    type Inner: AsBytes;
+    type Inner;
     const ADDRESS: u8;
     const SIZE: u8;
+    fn ids(&self) -> (u8, u8);
+    fn num_ids(&self) -> usize {
+        let (first, last) = self.ids();
+        (last - first + 1) as usize
+    }
+}
+
+pub trait BroadcastReadable: BroadcastRegister {
+    fn try_inner_from_bytes(bytes: &[u8]) -> Result<Self::Inner, std::io::Error>
+        where
+            Self: Sized;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,6 +102,15 @@ impl BroadcastPosition {
         }
     }
 
+    pub fn start_id(&self) -> u8 {
+        self.start_id
+    }
+
+    pub fn end_id(&self) -> u8 {
+        self.end_id
+    }
+
+
     pub fn builder() -> BroadcastPositionBuilder {
         BroadcastPositionBuilder::new()
     }
@@ -105,6 +126,9 @@ impl BroadcastRegister for BroadcastPosition {
     type Inner = f32;
     const ADDRESS: u8 = 0x60;
     const SIZE: u8 = 4;
+    fn ids(&self) -> (u8, u8) {
+        (self.start_id, self.end_id)
+    }
 }
 
 impl Writable for BroadcastPosition {
@@ -116,6 +140,88 @@ impl Writable for BroadcastPosition {
             buffer.extend_from_slice(d.to_be_bytes().as_slice());
         }
         buffer
+    }
+}
+
+pub struct BroadcastReadBuilder {
+    ids: Vec<u8>,
+}
+
+impl BroadcastReadBuilder {
+    pub fn add(&mut self, id: u8) -> &mut Self {
+        self.ids.push(id);
+        self
+    }
+
+    pub fn build<T>(self) -> Result<T, BuilderError> where T: FromReadBuilder {
+        if self.ids.is_empty() {
+            return Err(BuilderError::Empty);
+        }
+        let (first, last) = self.ids.first().zip(self.ids.last()).map(|(f, l)| (*f, *l)).ok_or(BuilderError::Empty)?;
+        let _ = self.ids.iter().try_fold(first, |acc, id| {
+            if id != &first {
+                return Err(BuilderError::NonSequentialID { expected: first, got: *id });
+            }
+            Ok(acc + 1)
+        })?;
+
+        Ok(T::from(first, last))
+    }
+}
+
+pub trait FromReadBuilder {
+    fn from(start_id: u8, end_id: u8) -> Self;
+}
+
+pub struct BroadcastPosTauCurrent {
+    start_id: u8,
+    end_id: u8,
+}
+
+impl BroadcastPosTauCurrent {
+    pub fn new(start_id: u8, end_id: u8) -> Self {
+        Self {
+            start_id,
+            end_id,
+        }
+    }
+    pub fn builder() -> BroadcastReadBuilder {
+        BroadcastReadBuilder {
+            ids: Vec::new(),
+        }
+    }
+}
+
+impl FromReadBuilder for BroadcastPosTauCurrent {
+    fn from(start_id: u8, end_id: u8) -> Self {
+        Self {
+            start_id,
+            end_id,
+        }
+    }
+}
+
+impl AsRef<BroadcastPosTauCurrent> for BroadcastPosTauCurrent {
+    fn as_ref(&self) -> &BroadcastPosTauCurrent {
+        self
+    }
+}
+
+impl BroadcastRegister for BroadcastPosTauCurrent {
+    type Inner = (PositionCurrent, TorqueCurrent);
+    const ADDRESS: u8 = 0x69;
+    const SIZE: u8 = 8;
+    fn ids(&self) -> (u8, u8) {
+        (self.start_id, self.end_id)
+    }
+}
+
+
+impl BroadcastReadable for BroadcastPosTauCurrent {
+    fn try_inner_from_bytes(bytes: &[u8]) -> Result<Self::Inner, std::io::Error> where Self: Sized {
+        let pos = PositionCurrent::try_from_bytes(&bytes[..4])?;
+        let tau = TorqueCurrent::try_from_bytes(&bytes[4..])?;
+        Ok((pos, tau))
     }
 }
 

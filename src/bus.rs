@@ -368,6 +368,20 @@ impl<'a, ReadBuffer, WriteBuffer> From<ResponsePacket<'a, ReadBuffer, WriteBuffe
         }
     }
 }
+
+
+impl<'a, 'b, ReadBuffer, WriteBuffer> From<&'b ResponsePacket<'a, ReadBuffer, WriteBuffer>> for Response<&'b [u8]>
+    where
+        ReadBuffer: AsRef<[u8]> + AsMut<[u8]>,
+        WriteBuffer: AsRef<[u8]> + AsMut<[u8]>,
+{
+    fn from(status_packet: &'b ResponsePacket<'a, ReadBuffer, WriteBuffer>) -> Self {
+        Self {
+            motor_id: status_packet.sender_id(),
+            data: status_packet.data(),
+        }
+    }
+}
 //
 // impl<'a, ReadBuffer, WriteBuffer> From<ResponsePacket<'a, ReadBuffer, WriteBuffer>> for Response<Vec<u8>>
 // where
